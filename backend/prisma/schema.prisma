@@ -1,0 +1,146 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+}
+
+enum BookingStatus {
+  PAYMENT_PENDING
+  PAYMENT_SUCCESS
+  SUPPLIER_BOOKING
+  BOOKING_CONFIRMED
+  BOOKING_FAILED
+  BOOKING_UNKNOWN
+  CANCELLATION_REQUESTED
+  CANCELLED
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCESS
+  FAILED
+  REFUND_PENDING
+  REFUNDED
+}
+
+enum TicketingStatus {
+  PENDING
+  TICKETED
+  FAILED
+}
+
+enum CancellationStatus {
+  CANCELLATION_REQUESTED
+  CANCELLED
+  REFUND_PENDING
+  REFUNDED
+  FAILED
+}
+
+model FlightOffer {
+  id               Int      @id @default(autoincrement())
+  offerId          String   @unique
+  supplier         String
+  supplierResultId String
+  airlineCode      String
+  flightNumber     String
+  origin           String
+  destination      String
+  departure        DateTime
+  arrival          DateTime
+  baggage          String?
+  refundable       Boolean  @default(false)
+
+  supplierBaseFare Decimal @db.Decimal(10, 2)
+  supplierTaxes    Decimal @db.Decimal(10, 2)
+  supplierTotal    Decimal @db.Decimal(10, 2)
+
+  serviceFee    Decimal @db.Decimal(10, 2)
+  discount      Decimal @db.Decimal(10, 2)
+  customerTotal Decimal @db.Decimal(10, 2)
+
+  currency  String    @default("INR")
+  expiresAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  bookings Booking[]
+}
+
+model Booking {
+  id                     Int    @id @default(autoincrement())
+  tixxgoBookingReference String @unique
+
+  flightOfferId Int
+  flightOffer   FlightOffer @relation(fields: [flightOfferId], references: [id])
+
+  supplier                 String
+  supplierResultId         String
+  supplierBookingReference String?
+
+  supplierTotal Decimal @db.Decimal(10, 2)
+  customerTotal Decimal @db.Decimal(10, 2)
+
+  paymentStatus   PaymentStatus   @default(PENDING)
+  bookingStatus   BookingStatus   @default(PAYMENT_PENDING)
+  ticketingStatus TicketingStatus @default(PENDING)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  travellers    Traveller[]
+  payments      Payment[]
+  cancellations Cancellation[]
+}
+
+model Traveller {
+  id        Int @id @default(autoincrement())
+  bookingId Int
+
+  firstName      String
+  lastName       String
+  email          String
+  phone          String
+  dateOfBirth    DateTime?
+  gender         String?
+  passportNumber String?
+
+  createdAt DateTime @default(now())
+
+  booking Booking @relation(fields: [bookingId], references: [id])
+}
+
+model Payment {
+  id        Int @id @default(autoincrement())
+  bookingId Int
+  paymentReference String        @unique
+ idempotencyKey String? @unique
+  amount           Decimal       @db.Decimal(10, 2)
+  status           PaymentStatus @default(PENDING)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  booking Booking @relation(fields: [bookingId], references: [id])
+}
+
+model Cancellation {
+  id        Int @id @default(autoincrement())
+  bookingId Int
+  supplierCharge Decimal @db.Decimal(10, 2)
+  tixxgoFee      Decimal @db.Decimal(10, 2)
+  refundAmount   Decimal @db.Decimal(10, 2)
+  status CancellationStatus @default(CANCELLATION_REQUESTED)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  booking Booking @relation(fields: [bookingId], references: [id])
+}
+
+model IdempotencyKey {
+  id          Int      @id @default(autoincrement())
+  key         String   @unique
+  requestHash String
+  response    Json?
+  bookingId   Int?
+  createdAt   DateTime @default(now())
+}
