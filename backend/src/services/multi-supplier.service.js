@@ -1,6 +1,13 @@
 import prisma from "../config/database.js";
 import supplierGateway from "../suppliers/supplier.gateway.js";
+import {
+    getCache,
+    setCache
+} from "../services/cache/cache.service.js";
 
+import {
+    flightSearchCacheKey
+} from  "../utils/cache-key.js"
 
 const calculateSupplierTotal = (flight) => {
 
@@ -89,8 +96,6 @@ const normalizeOffer = (flight) => {
                 : 0.92
     };
 };
-
-
 
 const saveOffer = async (offer) => {
 
@@ -290,34 +295,28 @@ const compareOffers = (offers) => {
 /**
  * Search multiple suppliers
  */
-const searchMultipleSuppliers = async (
-    request
-) => {
-
-    console.log(
-        "MULTI SUPPLIER SEARCH:",
-        request
-    );
-
-    const supplierNames =
-        supplierGateway.getSupplierNames();
-
-    console.log(
-        "SUPPLIERS:",
-        supplierNames
-    );
+const searchMultipleSuppliers = async (request) => {
+        const cacheKey = flightSearchCacheKey(request);
 
 
-    const results =
-        await Promise.allSettled(
+    // -----------------------------------
+    // 2. Check Redis
+    // -----------------------------------
 
-            supplierNames.map(
-                (supplier) => {
+    const cachedResults = await getCache(cacheKey);
 
-                    console.log(
-                        `Searching supplier: ${supplier}`
-                    );
+    if (cachedResults) {
 
+        console.log(
+            `Returning cached results: ${cacheKey}`
+        );
+
+        return cachedResults;
+    }
+    const supplierNames = supplierGateway.getSupplierNames();
+
+    const results = await Promise.allSettled(
+            supplierNames.map((supplier) => {
                     return supplierGateway
                         .searchFlights(
                             supplier,
@@ -326,132 +325,61 @@ const searchMultipleSuppliers = async (
                 }
             )
         );
-
-
     const allOffers = [];
 
 
-    results.forEach(
-        (result, index) => {
-
-            const supplier =
-                supplierNames[index];
-
-
-            if (
-                result.status ===
-                "fulfilled"
-            ) {
-
-                const flights =
-                    result.value || [];
-
-                console.log(
-                    `${supplier} returned ${flights.length} flights`
-                );
-
-
-                flights.forEach(
-                    (flight) => {
-
-                        const offer =
-                            normalizeOffer(
-                                flight
-                            );
-
-                        console.log(
-                            "NORMALIZED OFFER:",
-                            offer
-                        );
-
-                        allOffers.push(
-                            offer
-                        );
+    results.forEach((result, index) => {
+        const supplier =supplierNames[index];
+            if ( result.status ==="fulfilled") {
+                const flights =result.value || [];
+                flights.forEach((flight) => {
+                    const offer =normalizeOffer( flight);
+                        allOffers.push(offer);
                     }
                 );
 
             } else {
-
-                console.error(
-                    `Supplier ${supplier} search failed:`,
-                    result.reason
-                );
+                console.error( `Supplier ${supplier} search failed:`,result.reason);
             }
         }
     );
 
-
-    /*
-     * SAVE EVERY OFFER
-     */
-    for (
-        const offer of allOffers
-    ) {
-
-        await saveOffer(
-            offer
-        );
+    for (const offer of allOffers) {
+        await saveOffer( offer);
     }
-
-
-    console.log(
-        "TOTAL OFFERS:",
-        allOffers.length
-    );
-
-
-    /*
-     * GROUP ITINERARIES
-     */
-    const itineraryGroups =
-        groupByItinerary(
-            allOffers
-        );
-
-
-    /*
-     * BUILD RESPONSE
-     */
-    return itineraryGroups.map(
-        (offers) => {
-
-            const sortedOffers =
-                compareOffers(
-                    offers
-                );
-
-            const firstOffer =
-                sortedOffers[0];
-
-
+    const itineraryGroups =groupByItinerary(allOffers);
+    const  response   =   itineraryGroups.map((offers) => {
+            const sortedOffers =compareOffers(offers);
+            const firstOffer =sortedOffers[0];
             return {
+                itinerary:{
+                    airlineCode:firstOffer.airlineCode,
 
-                itinerary: {
+                    flightNumber:firstOffer.flightNumber,
 
-                    airlineCode:
-                        firstOffer.airlineCode,
+                    origin:firstOffer.origin,
 
-                    flightNumber:
-                        firstOffer.flightNumber,
+                    destination:firstOffer.destination,
 
-                    origin:
-                        firstOffer.origin,
+                    departure:firstOffer.departure,
 
-                    destination:
-                        firstOffer.destination,
-
-                    departure:
-                        firstOffer.departure,
-
-                    arrival:
-                        firstOffer.arrival
+                    arrival:firstOffer.arrival
                 },
 
-                offers:
-                    sortedOffers
+                offers:sortedOffers
             };
         }
     );
+
+      await setCache(
+        cacheKey,
+        response,
+        Number(
+            process.env.REDIS_SEARCH_TTL || 300
+        )
+    );
+
+    return response;
 };
 
 

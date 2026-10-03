@@ -68,12 +68,14 @@ CREATE TABLE `Payment` (
     `id` INTEGER NOT NULL AUTO_INCREMENT,
     `bookingId` INTEGER NOT NULL,
     `paymentReference` VARCHAR(191) NOT NULL,
+    `idempotencyKey` VARCHAR(191) NULL,
     `amount` DECIMAL(10, 2) NOT NULL,
     `status` ENUM('PENDING', 'SUCCESS', 'FAILED', 'REFUND_PENDING', 'REFUNDED') NOT NULL DEFAULT 'PENDING',
     `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     `updatedAt` DATETIME(3) NOT NULL,
 
     UNIQUE INDEX `Payment_paymentReference_key`(`paymentReference`),
+    UNIQUE INDEX `Payment_idempotencyKey_key`(`idempotencyKey`),
     PRIMARY KEY (`id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
@@ -97,6 +99,7 @@ CREATE TABLE `IdempotencyKey` (
     `key` VARCHAR(191) NOT NULL,
     `requestHash` VARCHAR(191) NOT NULL,
     `response` JSON NULL,
+    `bookingId` INTEGER NULL,
     `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
 
     UNIQUE INDEX `IdempotencyKey_key_key`(`key`),

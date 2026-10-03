@@ -14,7 +14,11 @@ redisClient.on("connect", () => {
 });
 
 redisClient.on("ready", () => {
-    console.log("Redis connected");
+    console.log("Redis connected...");
+});
+
+redisClient.on("reconnecting", () => {
+    console.log("Redis reconnecting...");
 });
 
 await redisClient.connect();

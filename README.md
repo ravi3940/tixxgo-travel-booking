@@ -47,41 +47,7 @@ Infrastructure
 - Docker Compose
 
 
-tixxgo/
-│
-├── backend/
-│   ├── prisma/
-│   │   ├── migrations/
-│   │   └── schema.prisma
-│   │
-│   ├── src/
-│   │   ├── config/
-│   │   ├── modules/
-│   │   │   ├── flights/
-│   │   │   ├── bookings/
-│   │   │   ├── suppliers/
-│   │   │   └── cancellations/
-│   │   ├── app.js
-│   │   └── server.js
-│   │
-│   ├── .env
-│   ├── .dockerignore
-│   ├── Dockerfile
-│   ├── package.json
-│   └── prisma.config.js
-│
-├── frontend/
-│   ├── src/
-│   │   └── app/
-│   │       ├── search/
-│   │       ├── results/
-│   │       ├── traveller/
-│   │       ├── payment/
-│   │       └── confirmation/
-│   └── package.json
-│
-├── docker-compose.yml
-└── README.md
+
 
                          ┌─────────────────────┐
                          │   Angular Frontend  │

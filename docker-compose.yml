@@ -1,71 +1,59 @@
 services:
 
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: tixxgo-frontend
+    ports:
+      - "4200:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
-
     container_name: tixxgo-backend
-
     ports:
       - "5000:5000"
-
     environment:
       PORT: 5000
-
       DATABASE_URL: mysql://root:root@mysql:3306/tixxgo
-
       DB_HOST: mysql
       DB_PORT: 3306
       DB_USER: root
       DB_PASSWORD: root
       DB_NAME: tixxgo
-
       REDIS_URL: redis://redis:6379
-
       REDIS_SEARCH_TTL: 300
-
     depends_on:
       - mysql
       - redis
-
     restart: unless-stopped
-
 
   mysql:
     image: mysql:8.4
-
     container_name: tixxgo-mysql
-
     environment:
-      MYSQL_ROOT_PASSWORD: admin
+      MYSQL_ROOT_PASSWORD: root
       MYSQL_DATABASE: tixxgo
-
     ports:
-      - "3306:3306"
-
+      - "3307:3306"
     volumes:
       - mysql_data:/var/lib/mysql
-
     restart: unless-stopped
-
 
   redis:
     image: redis:7-alpine
-
     container_name: tixxgo-redis
-
     ports:
       - "6379:6379"
-
     volumes:
       - redis_data:/data
-
     restart: unless-stopped
 
-
 volumes:
-
   mysql_data:
-
   redis_data:
